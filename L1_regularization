@@ -1,0 +1,67 @@
+#Set Batch Size
+batch_size = 128
+
+
+# Download MNIST dataset to local drive. A new folder "data" will be created in the current directory to store data
+train_dataset = torchvision.datasets.MNIST(root='./data', 
+                                           train=True, 
+                                           transform=transforms.ToTensor(),  
+                                           download=True)
+
+train_dataset, validation_dataset = torch.utils.data.random_split(train_dataset,[50000,10000])
+
+test_dataset = torchvision.datasets.MNIST(root='./data', 
+                                          train=False, 
+                                          transform=transforms.ToTensor())
+
+# Data loader for shuffling and batching.
+train_loader = torch.utils.data.DataLoader(dataset=train_dataset, 
+                                           batch_size=batch_size, 
+                                           shuffle=True)
+
+validation_loader = torch.utils.data.DataLoader(dataset=validation_dataset,
+                                                batch_size=batch_size,
+                                                shuffle=False)
+
+test_loader = torch.utils.data.DataLoader(dataset=test_dataset, 
+                                          batch_size=batch_size, 
+                                          shuffle=False)
+
+X_train = train_loader.dataset.dataset.train_data
+y_train = train_loader.dataset.dataset.train_labels
+X_Test = test_loader.dataset.test_data
+y_Test = test_loader.dataset.test_labels
+
+
+# Transfer the weight from L2 regularization and use L1 Regularization
+class RegularizationNet(NeuralNet):
+ 
+  def __init__(self, *args, lambda1=0.01, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.lambda1 = lambda1
+
+  def get_loss(self, y_pred, y_true, X=None, training=False):
+    loss = super().get_loss(y_pred, y_true, X=X, training=training)
+    loss += self.lambda1 * sum([w.abs().sum() for w in self.module_.parameters()])
+    return loss
+
+new_net = RegularizationNet(module=MyModule, 
+                            module__input_size = input_size,
+                            module__hidden_size1 = hidden_size1,
+                            module__hidden_size2 = hidden_size2,
+                            module__num_classes = num_classes,
+                            criterion=torch.nn.NLLLoss)
+
+# Transfer weight
+#new_net.initialize()
+#new_net.initialize_module()
+#new_net.save_params(f_params='L2Weight.pkl')
+#new_net.load_params(f_params ='L2Weight.pkl')
+
+# Train the network
+new_net.fit(X_train, y_train)
+
+'''# Save the weight parameters from L2 regularized training (biases also saved?)            
+new_net.save_params(f_params='L2Weight.pkl')'''
+
+y_pred_probs = new_net.predict(X_test)
